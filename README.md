@@ -4,7 +4,7 @@ It then displays information about the results, including title, director, year,
 The user is then given the option to add information on what format they own the title in and what release studio its from, and export the results to a text file.
 
 TODO:
-*Speed up the search by reducing list sizes and implementing binary search
-*Create Search tab widgets
-*addToList Button
-*Progress bar?
+* Speed up the search by reducing list sizes and implementing binary search
+* Create Search tab widgets
+* addToList Button
+* Progress bar?

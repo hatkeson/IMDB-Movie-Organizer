@@ -6,6 +6,7 @@ It then displays information about the results, including:
 * Director
 * Year
 * Runtime of all versions
+
 The user is then given the option to add information on what format they own the title in and what release studio its from, and export the results to a tsv file.
 The user can later search this list by any combination of the following: title, director, year, or decade.
 

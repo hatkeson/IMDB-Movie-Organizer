@@ -1,7 +1,13 @@
 # IMDB-Movie-Organizer
 This program prompts the user for a movie title (required) and a year (optional) and searches IMDB with those parameters. 
-It then displays information about the results, including title, director, year, and runtime.
-The user is then given the option to add information on what format they own the title in and what release studio its from, and export the results to a text file.
+It then displays information about the results, including: 
+* Title
+* Alternate Titles
+* Director
+* Year
+* Runtime of all versions
+The user is then given the option to add information on what format they own the title in and what release studio its from, and export the results to a tsv file.
+The user can later search this list by any combination of the following: title, director, year, or decade.
 
 TODO:
 * Speed up searching datasets (current search time = 45 seconds)
@@ -17,4 +23,5 @@ TODO:
   * Search by Decade
   * Search by Runtime?
 * addToList Button
+* show alternative titles (title.akas)
 * Progress bar?

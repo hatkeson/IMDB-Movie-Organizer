@@ -1,47 +1,11 @@
-# Movie Organizer
-
 import csv
+import ast
+import os
+from os import path
 import tkinter as tk
 from tkinter import ttk
 import imdb
 from imdb import IMDb
-
-# create Application class:
-# window should have "Movie Organizer" title
-# window should be 800x600
-# widgets:
-    # notebook - should have 2 tabs: "Add/Remove" and "Search"
-    # Add tab - 3x5 grid
-        # has 5 labels: "Title:" "Year:" "Result" "Format:" "Studio:"
-        # Two buttons: "Search" "Add"
-        # Add format and studio
-        # List box for result
-    # Search Tab
-        # Search by Title
-        # Search by Year
-        # Search by Decade (should be a SpinBox)
-        # Search by Director
-
-# use IMDbPY to search would cut down search time considerably
-# first, import imdb and imdb.IMDb
-# Adding to List:
-    # user enters in title and year
-    # use title as parameter for search_movie()
-    # narrow the results by comparing Year field to movie['year'] (class 'int')
-        # this may throw a KeyError?
-    # get ID of remaining result, get_movie(ID)
-    # get 'directors', 'akas' and 'runtime' from this
-    # put first result in Result fields (have it be entry so it's editable)
-    # create tsv row of ['title', 'akas', 'year', 'director', 'runtime']
-    # write to mylist.tsv, insert in alphabetical order by title (binary search)
-# Searching for a Movie
-    # take info from entry fields: title, year, director, decade
-        # all should be optional, if there is no entry then print notification
-    # open mylist.tsv, use binary search for title (common case)
-        # check both title fields and AKAs
-    # have to linearly search for all others
-    # if more than one parameter, have to check each
-
 
 class Application(tk.Frame):
     
@@ -59,9 +23,24 @@ class Application(tk.Frame):
         self.searchTab = ttk.Frame(self.tabControl)
         self.tabControl.add(self.addTab, text='Add New Movie')
         self.tabControl.add(self.searchTab, text='Search My Collection')
-        self.tabControl.pack(expand=1, fill='both')
+        self.tabControl.pack(expand=1, fill=tk.BOTH)
         self.create_addTab_widgets()
         self.create_searchTab_widgets()
+
+    def handleReturn_searchAddTab(self, event):
+        self.searchAddTab(self.entryTitle.get(), self.entryYear.get())
+
+    def handleReturn_addToList(self, event):
+        self.addToList(self.labelTitle1.get(), self.labelYear1.get(),
+                       self.labelDirector1.get(), self.labelRuntime1.get(),
+                       self.listAKA1.get(0, tk.END), self.v.get(),
+                       self.entryStudio.get(), self.entryLocation.get())
+
+    def handleReturn_search_mylist(self, event, v):
+        self.search_mylist(self.searchTitleEntry.get(),
+                           self.searchYearEntry.get(),
+                           self.searchDirectorEntry.get(),
+                           v.get())
 
     def create_addTab_widgets(self):
         # widgets for Add tab
@@ -70,232 +49,295 @@ class Application(tk.Frame):
         
         self.labelTitle = ttk.Label(self.addFrame, text='Title:')
         self.labelTitle.grid(row=0, column=0, sticky=tk.E)
-        self.entryTitle = ttk.Entry(self.addFrame)
+        self.entryTitle = ttk.Entry(self.addFrame, width=40)
         self.entryTitle.grid(row=0, column=1)
+        self.entryTitle.bind('<Return>', self.handleReturn_searchAddTab)
         
         self.labelYear = ttk.Label(self.addFrame, text='Year:')
         self.labelYear.grid(row=1, column=0, sticky=tk.E)
-        self.entryYear = ttk.Entry(self.addFrame)
+        self.entryYear = ttk.Entry(self.addFrame, width=40)
         self.entryYear.grid(row=1, column=1)
+        self.entryYear.bind('<Return>', self.handleReturn_searchAddTab)
 
         self.searchButton = ttk.Button(self.addFrame, text='Search', 
             command=lambda: self.searchAddTab(self.entryTitle.get(),
                 self.entryYear.get()))
         self.searchButton.grid(row=1, column=2)
+        self.searchButton.bind('<Return>', self.handleReturn_searchAddTab)
 
-        self.labelNote = ttk.Label(self.addFrame, text='') #filled in with input
+        self.labelNote = ttk.Label(self.addFrame, text='') 
         self.labelNote.grid(row=2, column=1)
 
-        self.updateButton = ttk.Button(self.addFrame,
-                                       text='Update', command=self.update)
-        self.updateButton.grid(row=2, column=2)
-
-        self.labelIDResult = ttk.Label(self.addFrame, text='ID#:')
-        self.labelIDResult.grid(row=4, column=0, sticky=tk.E)
-
-        self.labelID1 = ttk.Entry(self.addFrame)
-        self.labelID1.grid(row=4, column=1)
-
         self.labelTitleResult = ttk.Label(self.addFrame, text='Title:')
-        self.labelTitleResult.grid(row=5, column=0, sticky=tk.E)
-
-        self.labelTitle1 = ttk.Entry(self.addFrame)
-        self.labelTitle1.grid(row=5, column=1) 
+        self.labelTitleResult.grid(row=4, column=0, sticky=tk.E)
+        self.labelTitle1 = ttk.Entry(self.addFrame, width=40)
+        self.labelTitle1.grid(row=4, column=1) 
 
         self.labelYearResult = ttk.Label(self.addFrame, text='Year:')
-        self.labelYearResult.grid(row=6, column=0, sticky=tk.E)
-
-        self.labelYear1 = ttk.Entry(self.addFrame)
-        self.labelYear1.grid(row=6, column=1)
+        self.labelYearResult.grid(row=5, column=0, sticky=tk.E)
+        self.labelYear1 = ttk.Entry(self.addFrame, width=40)
+        self.labelYear1.grid(row=5, column=1)
 
         self.labelDirectorResult = ttk.Label(self.addFrame, text='Director:')
-        self.labelDirectorResult.grid(row=7, column=0, sticky=tk.E)
-
-        self.labelDirector1 = ttk.Entry(self.addFrame)
-        self.labelDirector1.grid(row=7, column=1)
+        self.labelDirectorResult.grid(row=6, column=0, sticky=tk.E)
+        self.labelDirector1 = ttk.Entry(self.addFrame, width=40)
+        self.labelDirector1.grid(row=6, column=1)
 
         self.labelRuntimeResult = ttk.Label(self.addFrame, text='Runtime:')
-        self.labelRuntimeResult.grid(row=8, column=0, sticky=tk.E)
+        self.labelRuntimeResult.grid(row=7, column=0, sticky=tk.E)
+        self.labelRuntime1 = ttk.Entry(self.addFrame, width=40)
+        self.labelRuntime1.grid(row=7, column=1)
 
-        self.labelRuntime1 = ttk.Entry(self.addFrame)
-        self.labelRuntime1.grid(row=8, column=1)
+        self.labelAKAResult = ttk.Label(self.addFrame,
+                                        text='Alternate Title(s):')
+        self.labelAKAResult.grid(row=8, column=0, sticky=tk.E)
+        self.listAKA1 = tk.Listbox(self.addFrame, width=40)
+        self.listAKA1.grid(row=8, column=1)
 
         self.labelFormat = ttk.Label(self.addFrame, text='Format:')
         self.labelFormat.grid(row=9, column=0, sticky=tk.E)
 
-        v = tk.StringVar()
+        self.v = tk.StringVar()
         optionList = ['Choose a format', 'Blu-ray', 'DVD', 'VHS', 'Other']
-        v.set(optionList[0])
-        self.formatMenu = ttk.OptionMenu(self.addFrame, v,'Choose a format',
-                                    'Blu-ray', 'DVD', 'VHS', 'Other')
+        self.v.set(optionList[0])
+        self.formatMenu = ttk.OptionMenu(self.addFrame, self.v,
+                                         'Choose a format', 'Blu-ray',
+                                         'DVD', 'VHS', 'Other')
         self.formatMenu.grid(row=9, column=1, sticky=(tk.W+tk.E))
 
         self.labelStudio = ttk.Label(self.addFrame, text='Studio:')
         self.labelStudio.grid(row=10, column=0, sticky=tk.E)
-
-        self.entryStudio = ttk.Entry(self.addFrame)
+        self.entryStudio = ttk.Entry(self.addFrame, width=40)
         self.entryStudio.grid(row=10, column=1)
+        self.entryStudio.bind('<Return>', self.handleReturn_addToList)
+
+        self.labelLocation = ttk.Label(self.addFrame, text='Location:')
+        self.labelLocation.grid(row=11, column=0, sticky=tk.E)
+        self.entryLocation = ttk.Entry(self.addFrame, width=40)
+        self.entryLocation.grid(row=11, column=1)
+        self.entryLocation.bind('<Return>', self.handleReturn_addToList)
 
         addButton = ttk.Button(self.addFrame, text='Add to List', 
-                                 command=self.addToList)
-        addButton.grid(row=10, column=2)
+                                 command=lambda: self.addToList(
+                                     self.labelTitle1.get(),
+                                     self.labelYear1.get(),
+                                     self.labelDirector1.get(),
+                                     self.labelRuntime1.get(),
+                                     self.listAKA1.get(0, tk.END),
+                                     self.v.get(),
+                                     self.entryStudio.get(),
+                                     self.entryLocation.get()))
+        addButton.grid(row=11, column=2)
+        addButton.bind('<Return>', self.handleReturn_addToList)
 
     def create_searchTab_widgets(self):
         # widgets for Search tab
 
         self.searchFrame = ttk.Frame(self.searchTab)
-        self.searchFrame.pack(side=tk.TOP)
+        self.searchFrame.grid(row=0, column=0)
         
         self.searchTitle = ttk.Label(self.searchFrame, text='Title: ')
         self.searchTitle.grid(row=0, column=0, sticky=tk.E)
-
-        self.searchTitleEntry = ttk.Entry(self.searchFrame)
+        self.searchTitleEntry = ttk.Entry(self.searchFrame, width=40)
         self.searchTitleEntry.grid(row=0, column=1)
 
         self.searchYear = ttk.Label(self.searchFrame, text='Year: ')
         self.searchYear.grid(row=1, column=0, sticky=tk.E)
-
-        self.searchYearEntry = ttk.Entry(self.searchFrame)
+        self.searchYearEntry = ttk.Entry(self.searchFrame, width=40)
         self.searchYearEntry.grid(row=1, column=1)
 
         self.searchDirector = ttk.Label(self.searchFrame, text='Director: ')
         self.searchDirector.grid(row=2, column=0, sticky=tk.E)
-
-        self.searchDirectorEntry = ttk.Entry(self.searchFrame)
+        self.searchDirectorEntry = ttk.Entry(self.searchFrame, width=40)
         self.searchDirectorEntry.grid(row=2, column=1)
 
         self.searchDecade = ttk.Label(self.searchFrame, text='Decade: ')
         self.searchDecade.grid(row=3, column=0, sticky=tk.E)
-
         v = tk.StringVar()
         v.set('Choose a Decade')
-        self.formatMenu = ttk.OptionMenu(self.searchFrame, v, 'Choose a Decade',
+        self.decadeMenu = ttk.OptionMenu(self.searchFrame, v, 'Choose a Decade',
+                                         'None',
                                          '1920s', '1930s', '1940s', '1950s',
                                          '1960s', '1970s', '1980s', '1990s',
                                          '2000s', '2010s', '2020s', '2030s')
-        self.formatMenu.grid(row=3, column=1, sticky=(tk.W+tk.E))
+        self.decadeMenu.grid(row=3, column=1, sticky=(tk.W+tk.E))
 
         self.searchButton = ttk.Button(self.searchFrame, text='Search', 
-            command=lambda: self.search_mylist())
+            command=lambda: self.search_mylist(self.searchTitleEntry.get(),
+                                               self.searchYearEntry.get(),
+                                               self.searchDirectorEntry.get(),
+                                               v.get()))
         self.searchButton.grid(row=3, column=2)
 
         self.search_note_cell = ttk.Label(self.searchFrame, text='')
         self.search_note_cell.grid(row=4, column=1)
 
-        self.searchResults = ttk.Treeview(self.searchTab, columns=['Title',
-                                        'Year', 'Director', 'AKAs', 'Runtime',
-                                        'Format', 'Studio'])
-        self.searchResults.pack(side=tk.BOTTOM)
-        self.searchResults.heading('Title', text='Title', anchor=tk.W)
+        self.searchResults = ttk.Treeview(self.searchTab, columns=[
+                                        'Year', 'Director', 'Runtime',
+                                        'Format', 'Studio', 'Location'],
+                                        height=16)
+        self.searchResults.grid(row=1, column=0)
+        self.searchResults.heading('#0', text='Title', anchor=tk.W)
         self.searchResults.heading('Year', text='Year', anchor=tk.W)
         self.searchResults.heading('Director', text='Director', anchor=tk.W)
-        self.searchResults.heading('AKAs', text='AKAs', anchor=tk.W)
         self.searchResults.heading('Runtime', text='Runtime', anchor=tk.W)
         self.searchResults.heading('Format', text='Format', anchor=tk.W)
         self.searchResults.heading('Studio', text='Studio', anchor=tk.W)
+        self.searchResults.heading('Location', text='Location', anchor=tk.W)
 
-        self.searchResults.column('Title', width=200, minwidth=200)
+        self.searchResults.column('#0', width=200, minwidth=50)
         self.searchResults.column('Year', width=50, minwidth=50)
-        self.searchResults.column('Director', width=200, minwidth=200)
-        self.searchResults.column('AKAs', width=200, minwidth=200)
+        self.searchResults.column('Director', width=150, minwidth=50)
         self.searchResults.column('Runtime', width=50, minwidth=50)
-        self.searchResults.column('Format', width=100, minwidth=100)
-        self.searchResults.column('Studio', width=200, minwidth=200)
-        
-        self.searchResults['show'] = 'headings'
-        
+        self.searchResults.column('Format', width=70, minwidth=50)
+        self.searchResults.column('Studio', width=150, minwidth=50)
+        self.searchResults.column('Location', width=100, minwidth=50)
+            
     def searchAddTab(self, title, year=''):
         print('Search button clicked!')
         if (title == ''):
             self.labelNote['text'] = 'Please enter a title.'
         else:
-            found = False
-            directorID = ''
             self.labelNote['text'] = 'Searching...'
-            with open("data/title.basics.tsv") as tb:
-                rd = csv.reader(tb, delimiter='\t')
-                title = self.entryTitle.get()
-                if (self.entryYear.get() != 0):
-                    year = self.entryYear.get()
-                for row in rd:
-                    if (row[2] == title and (year == '' or row[5] == year)):
-                        found = True
-                        self.labelID1['text'] = row[0]
-                        self.labelTitle1['text'] = row[2]
-                        self.labelYear1['text'] = row[5]
-                        self.labelRuntime1['text'] = row[7]
-                        break
-            with open('data/title.crew.tsv') as tc:
-                rd = csv.reader(tc, delimiter='\t')
-                titleID = self.labelID1.cget('text')
-                for row in rd:
-                    if (row[0] == titleID):
-                        directorID = row[1]
-            with open('data/name.basics.tsv') as nb:
-                rd = csv.reader(nb, delimiter='\t')
-                for row in rd:
-                    if (row[0] == directorID):
-                        self.labelDirector1['text'] = row[1]
-                            
-            if (found):
+
+            ia = imdb.IMDb()
+            movieList = ia.search_movie(self.entryTitle.get())
+            movieList = [mov for mov in movieList if 'year' in mov.keys()]
+            finalList = []
+            if (year == ''):
+                finalList = movieList
+            else:
+                for mov in movieList:
+                    if (int(year) == mov['year']):
+                        finalList.append(mov)
+            self.labelTitle1.delete(0, last=tk.END)
+            self.labelYear1.delete(0, last=tk.END)
+            self.labelDirector1.delete(0, last=tk.END)
+            self.labelRuntime1.delete(0, last=tk.END)
+            self.listAKA1.delete(0, tk.END)
+            self.entryStudio.delete(0, tk.END)
+            self.entryLocation.delete(0, tk.END)
+            if (len(finalList) > 0):
                 self.labelNote['text'] = 'Result Found!'
+                movie = ia.get_movie(finalList[0].movieID)            
+                self.labelTitle1.insert(2, movie['title'])
+                self.labelYear1.insert(3, movie['year'])
+                if ('runtimes' in movie.keys()):
+                    for rt in movie['runtimes']:
+                        self.labelRuntime1.insert(4, rt + ' ')
+                else:
+                    self.labelRuntime1.insert(4, 'Unavailable')
+                if ('directors' in movie.keys()):
+                    director = ia.get_person(movie['directors'][0].personID)
+                    self.labelDirector1.insert(5, director['name'])
+                else:
+                    self.labelDirector1.insert(5, 'Unavailable')
+                if ('akas' in movie.keys()):
+                    for tt in movie['akas']:
+                        self.listAKA1.insert(tk.END, tt)
+                else:
+                    self.listAKA1.insert(5, 'Unavailable')         
             else:
                 self.labelNote['text'] = 'No Result Found.'
 
-    def search_mylist(self):
-        print('Searching mylist.tsv...')
-
-    def addToList(self, ID, title, year, director, runtime, form, studio):
-        print('Add button clicked!')
-        # get info from result entry widgets
-        # construct an entry with tabs between elements, newline at end
-        # entry should include:
-            # title, year, director, runtime, format, studio
-        # write entry to my_list.tsv
-        # send "Added to List!" to notification cell
-        # organize by title (common case), use binary insert and search
-
-    def update(self):
-        print ('Update button clicked!')
-        fileURLs = ['title.crew.tsv.gz', 'name.basics.tsv.gz',
-                    'title.basics.tsv.gz', 'title.akas.tsv.gz']
-        length = len(fileURLs)
-        for i in range(length):
-            filedata = urllib.request.urlopen(
-                'https://datasets.imdbws.com/' + fileURLs[i])
-            print('Reading file ' + str(i+1) + ' of ' + str(length))
-            zippedData = filedata.read()
-            print('Unzipping file ' + str(i+1) + ' of ' + str(length))
-            unzipped = zlib.decompress(zippedData, 15+32)
-            print('Decoding file ' + str(i+1) + ' of ' + str(length))
-            listFile = unzipped.decode('utf-8').splitlines()
-            print('Writing file ' + str(i+1) + ' of ' + str(length))
- 
-            with open(__file__[:-18] + 'data/' + fileURLs[i][:-3], 'w') as f:
-                wr = csv.writer(f, delimiter='\t')
-                rd = csv.reader(listFile, delimiter='\t')
-                for row in rd:
-                    if (i == 0 and row[1] != '\\N'):
-                        wr.writerow(row)
-                    elif (i == 1):
-                        with open(__file__[:-18] + 'data/' +
-                                  fileURLs[0][:-3], 'r') as tc:
-                            rdtc = csv.reader(tc, delimiter='\t')
-                            for row1 in rdtc:
-                                if (row[0] in row1[1]):
-                                   wr.writerow(row)
-                                   break
-                    elif (i == 2 and (row[1] == 'movie' or
-                                    row[1] == 'short' or
-                                    row[1] == 'tvMovie' or
-                                    row[1] == 'video') and
-                        row[5] != '\\N' and row[7] != '\\N'):
-                        wr.writerow(row)
+    def search_mylist(self, title='', year='', director='',
+                      decade='Choose a Decade'):
+        # go through each parameter until you find one that isn't empty
+        # on the filled parameter, get all entries that match that parameter
+        # on the next filled parameter, delete non-matches from that list
+        # continue until out of parameters, then print results to list
+        for row in self.searchResults.get_children():
+                self.searchResults.delete(row)
+        if (title == '' and year == '' and director == ''
+            and (decade == 'Choose a Decade' or decade == 'None')):
+            self.search_note_cell['text'] = 'Please enter a search parameter.'
+        else:
+            results = []
+            with open('./data/my_collection.tsv', 'r') as mc:
+                rd = csv.reader(mc, delimiter='\t')
+                if (title != ''):
+                    for row in rd:
+                        if (title.casefold() in row[0].casefold() or
+                            title.casefold() in row[4].casefold()):
+                            results.append(row)
+                if (year != ''):
+                    if (len(results) > 0):
+                        results = [ent for ent in results
+                                   if ent[1] == year]
                     else:
-                        wr.writerow(row)
+                        for row in rd:
+                            if (row[1] == year):
+                                results.append(row)
+                if (director != ''):
+                    if (len(results) > 0):
+                        results = [ent for ent in results
+                                   if ent[2] == director]
+                    else:
+                        for row in rd:
+                            if (director.casefold() in row[2].casefold()):
+                                results.append(row)
+                if (decade != 'Choose a Decade' and decade != 'None'):
+                    switcher = {
+                            '1920s': range(1920, 1930),
+                            '1930s': range(1930, 1940),
+                            '1940s': range(1940, 1950),
+                            '1950s': range(1950, 1960),
+                            '1960s': range(1960, 1970),
+                            '1970s': range(1970, 1980),
+                            '1980s': range(1980, 1990),
+                            '1990s': range(1990, 2000),
+                            '2000s': range(2000, 2010),
+                            '2010s': range(2010, 2020),
+                            '2020s': range(2020, 2030),
+                            '2030s': range(2030, 2040)
+                            }
+                    if (len(results) > 0):
+                        results = [ent for ent in results if int(ent[1])
+                                   in switcher[decade]]
+                    else:
+                        for row in rd:
+                            if (int(row[1]) in switcher[decade]):
+                                    results.append(row)
+            if (len(results) == 0):
+                self.search_note_cell['text'] = 'No Result Found.'
+            else:
+                self.search_note_cell['text'] = 'Results Found!'
+                for i in range(len(results)):
+                    parent = self.searchResults.insert('', 'end',
+                                            text=results[i][0],
+                                            values=results[i][1:7])
+                    alt_titles = ast.literal_eval(results[i][7])
+                    for tt in alt_titles:
+                        self.searchResults.insert(parent, 'end', text=tt)
+                    
+                        
+    def create_tsv(self):
+        with open('./data/my_collection.tsv', 'wt') as mc:
+            print('File created!')
+
+    def addToList(self, title, year, director, runtime, akas, form, studio,
+                  location):
+        print('Add button clicked!')
         
-        self.labelNote['text'] = 'Update successful!'
-        print('Update successful!')
+        if (form != 'Choose a Format' and studio != '' and location != ''):
+            if (not os.path.isfile('./data/my_collection.tsv')):
+                self.create_tsv()
+            l = [title, year, director, runtime, form, studio, location, akas]
+            with open('./data/my_collection.tsv', 'r+') as mc:
+                wr = csv.writer(mc, delimiter='\t')
+                already_present = False
+                rd = csv.reader(mc, delimiter='\t')
+                for row in rd:
+                    if (row[:3] == l[:3]):
+                        already_present = True
+                if (already_present):
+                    self.labelNote['text'] = 'Movie already in list.'
+                else:
+                    wr.writerow(l)
+                    self.labelNote['text'] = 'Added to List!'
+        else:
+            self.labelNote['text'] = 'Please enter Format, Studio, and/or Location'
+
     
 #run window
 root = tk.Tk()

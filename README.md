@@ -7,5 +7,5 @@ It then displays information about the results, including:
 * Year
 * Runtime
 
-The user is then given the option to add information on what format they own the title in and what release studio its from, and export the results to a SQLite database.
+The user is then given the option to add information on what format they own the title in and what release studio it's from, and export the results to a SQLite database.
 The user can later search this list by any combination of the following: title, director, year, or decade.

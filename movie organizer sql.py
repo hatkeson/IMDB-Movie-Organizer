@@ -29,13 +29,13 @@ class Application(tk.Frame):
                     rating text,
                     genre text,
                     runtime integer,
-                    format text,
-                    studio text,
+                    format text NOT NULL,
+                    studio text NOT NULL,
                     location text,
                     cast text,
                     akas text,
                     akas_country text,
-                    PRIMARY KEY(title, year, director, format))''')
+                    PRIMARY KEY(title, year, director, format, studio))''')
         conn.commit()
         conn.close()
 
@@ -338,8 +338,11 @@ class Application(tk.Frame):
             print('Please enter a title.')
         else:
             ia = imdb.IMDb()
+            res_count = 10
+            if (year != ''):
+                res_count = 100
             movie_list = ia.search_movie(self.title_input_entry.get(),
-                                         results=10)
+                                         results=res_count)
             movie_list = [mov for mov in movie_list if 'year' in mov.keys()]
             final_list = []
             if (year == ''):
@@ -519,8 +522,12 @@ class Application(tk.Frame):
 
             sub_query_str = ' AND '.join(sub_query)
             query += sub_query_str
+
+            print('Vals: ')
+            print(vals)
             
-            if (len(vals) == 1 and vals[0] == decade):
+            if (len(vals) == 2 and isinstance(vals[0], int)
+                and isinstance(vals[1], int)):
                 query += ''' ORDER BY year ASC, (CASE
                             WHEN title LIKE 'the %' THEN substr(title, 5)
                             WHEN title LIKE 'a %' THEN substr(title, 3)
@@ -593,8 +600,9 @@ class Application(tk.Frame):
                         title=? AND
                         year=? AND
                         director=? AND
-                        format=?''',
-                      (title, year, director, form))
+                        format=? AND
+                        studio=?''',
+                      (title, year, director, form, studio))
             conn.commit()
 
             if (len(c.fetchall()) != 0):
@@ -638,14 +646,16 @@ class Application(tk.Frame):
                 year = item_dict['values'][0]
                 director = item_dict['values'][1]
                 form = item_dict['values'][5]
+                studio = item_dict['values'][6]
                 
                 conn = sql.connect('collection.db')
                 c = conn.cursor()
                 q = '''DELETE FROM films WHERE title = ?
                         AND year = ? 
                         AND director = ?
-                        AND format = ?'''
-                v = [title, year, director, form]
+                        AND format = ?
+                        AND studio = ?'''
+                v = [title, year, director, form, studio]
                 c.execute(q, v)
                 conn.commit()
                 conn.close()

@@ -1,5 +1,6 @@
 import sqlite3 as sql
 import ast
+import random
 import tkinter as tk
 from tkinter import messagebox
 from tkinter import ttk
@@ -26,16 +27,17 @@ class Application(tk.Frame):
                     title text NOT NULL,
                     year integer NOT NULL CHECK (year >= 1894),
                     director text NOT NULL,
-                    rating text,
-                    genre text,
+                    rating text NULL,
+                    genre text NULL,
                     runtime integer,
                     format text NOT NULL,
                     studio text NOT NULL,
-                    location text,
-                    cast text,
-                    akas text,
-                    akas_country text,
-                    PRIMARY KEY(title, year, director, format, studio))''')
+                    location text NULL,
+                    cast text NULL,
+                    akas text NULL,
+                    akas_country text NULL,
+                    CONSTRAINT PK_films
+                    PRIMARY KEY (title, year, director, format, studio))''')
         conn.commit()
         conn.close()
 
@@ -116,11 +118,11 @@ class Application(tk.Frame):
         self.add_results_tree.heading('Genre', text='Genre', anchor=tk.W)
         self.add_results_tree.heading('Runtime', text='Runtime', anchor=tk.W)
 
-        self.add_results_tree.column('#0', width=200, minwidth=50)
+        self.add_results_tree.column('#0', width=300, minwidth=50)
         self.add_results_tree.column('Year', width=50, minwidth=50)
-        self.add_results_tree.column('Director', width=200, minwidth=50)
-        self.add_results_tree.column('Rating', width=50, minwidth=50)
-        self.add_results_tree.column('Genre', width=100, minwidth=50)
+        self.add_results_tree.column('Director', width=300, minwidth=50)
+        self.add_results_tree.column('Rating', width=85, minwidth=50)
+        self.add_results_tree.column('Genre', width=200, minwidth=50)
         self.add_results_tree.column('Runtime', width=50, minwidth=50)
 
         self.add_select_button = ttk.Button(self.add_tab_results_frame,
@@ -276,6 +278,11 @@ class Application(tk.Frame):
         self.add_tab_search_button.grid(row=6, column=2)
         self.add_tab_search_button.bind('<Return>', self.return_search_my_list)
 
+        self.random_button = ttk.Button(self.search_frame,
+                                        text='Choose Random',
+                                        command=self.search_random_button)
+        self.random_button.grid(row=6, column=3)
+
         self.search_note_cell = ttk.Label(self.search_frame, text='')
         self.search_note_cell.grid(row=7, column=1)
 
@@ -298,7 +305,7 @@ class Application(tk.Frame):
         self.results_tree.column('#0', width=200, minwidth=50)
         self.results_tree.column('Year', width=50, minwidth=50)
         self.results_tree.column('Director', width=150, minwidth=50)
-        self.results_tree.column('Rating', width=50, minwidth=50)
+        self.results_tree.column('Rating', width=85, minwidth=50)
         self.results_tree.column('Genre', width=200, minwidth=50)
         self.results_tree.column('Runtime', width=50, minwidth=50)
         self.results_tree.column('Format', width=70, minwidth=50)
@@ -450,6 +457,161 @@ class Application(tk.Frame):
         else:
             self.add_note_cell['text'] = 'Please highlight a result.'
 
+    def search_random_button(self):
+        """Randomly selects a single film from the results of a search"""
+        for row in self.results_tree.get_children():
+            self.results_tree.delete(row)
+        
+        title = self.search_title_entry.get()
+        year = self.search_year_entry.get()
+        director = self.search_director_entry.get()
+        cast = self.search_cast_entry.get()
+        rating = self.search_rating_entry.get()
+        genre = self.search_genre_entry.get()
+        decade = self.dec_val.get()
+
+        conn = sql.connect('collection.db')
+        c = conn.cursor()
+        query = '''SELECT * FROM films'''
+        
+        if (title == '' and year == '' and director == '' and
+            cast == '' and rating == '' and genre == '' and
+            (decade == 'Choose a Decade' or decade == 'None')):
+
+            
+            query += ''' ORDER BY (CASE
+                        WHEN title LIKE 'the %' THEN substr(title, 5)
+                        WHEN title LIKE 'a %' THEN substr(title, 3)
+                        WHEN title LIKE 'an %' THEN substr(title, 4)
+                        ELSE title
+                        END) ASC, year ASC'''
+
+            c.execute(query)
+            conn.commit()
+            
+            results = c.fetchall()
+
+            c.execute('SELECT COUNT(*) FROM films')
+            conn.commit()
+
+            total_count = c.fetchone()
+            conn.close()
+
+            res_count = len(results)
+            self.search_note_cell['text'] = ('Showing all ' + str(total_count[0])
+                                             + ' entries.')
+        else:
+
+            query += ''' WHERE '''
+            sub_query = []
+            vals = []
+            start = 0
+            end = 0
+            if (title != ''):
+                sub_query.append('(title LIKE ? OR akas LIKE ?)')
+                vals.append('%' + title + '%')
+                vals.append('%' + title + '%')
+            if (year != ''):
+                sub_query.append('year = ?')
+                vals.append(year)
+            else:
+                year = '0'
+            if (director != ''):
+                sub_query.append('director LIKE ?')
+                vals.append('%' + director + '%')
+            if (cast != ''):
+                sub_query.append('"cast" LIKE ?')
+                vals.append('%' + cast + '%')
+            if (rating != ''):
+                sub_query.append('rating = ?')
+                vals.append(rating)
+            if (genre != ''):
+                sub_query.append('genre LIKE ?')
+                vals.append('%' + genre + '%')
+            if (decade != 'Choose a Decade' and decade != 'None'):
+                sub_query.append('year >= ? AND year <= ?')
+                switcher = {
+                            '1920s': range(1920, 1930),
+                            '1930s': range(1930, 1940),
+                            '1940s': range(1940, 1950),
+                            '1950s': range(1950, 1960),
+                            '1960s': range(1960, 1970),
+                            '1970s': range(1970, 1980),
+                            '1980s': range(1980, 1990),
+                            '1990s': range(1990, 2000),
+                            '2000s': range(2000, 2010),
+                            '2010s': range(2010, 2020),
+                            '2020s': range(2020, 2030),
+                            '2030s': range(2030, 2040)
+                            }
+                start = switcher[decade][0]
+                end = switcher[decade][-1]
+                vals.append(start)
+                vals.append(end)
+
+            sub_query_str = ' AND '.join(sub_query)
+            query += sub_query_str
+
+            print('Vals: ')
+            print(vals)
+            
+            if (len(vals) == 2 and isinstance(vals[0], int)
+                and isinstance(vals[1], int)):
+                query += ''' ORDER BY year ASC, (CASE
+                            WHEN title LIKE 'the %' THEN substr(title, 5)
+                            WHEN title LIKE 'a %' THEN substr(title, 3)
+                            WHEN title LIKE 'an %' THEN substr(title, 4)
+                            ELSE title
+                            END) ASC'''
+            else:
+                query += ''' ORDER BY (CASE
+                            WHEN title LIKE 'the %' THEN substr(title, 5)
+                            WHEN title LIKE 'a %' THEN substr(title, 3)
+                            WHEN title LIKE 'an %' THEN substr(title, 4)
+                            ELSE title
+                            END) ASC, year ASC'''
+            c.execute(query, vals)
+            conn.commit()
+            
+            results = c.fetchall()
+
+            total_count = c.fetchone()
+            conn.close()
+
+            res_count = len(results)
+
+        # choose a random single
+        r_int = random.randint(0, res_count - 1)
+        print("Chose " + str(r_int) + " from " + str(res_count) + " films.")
+        self.search_note_cell['text'] = ('Randomly chose film #'
+                                             + str(r_int + 1)
+                                             + ' from '
+                                             + str(res_count)
+                                             + ' results.')
+
+
+        # display it
+        parent = self.results_tree.insert('', 'end',
+                                text=results[r_int][0],
+                                values=(results[r_int][1:9]))
+        alt_row = self.results_tree.insert(parent, 'end',
+                                           text='Alternate Titles',
+                                           open=True)
+        cast_row = self.results_tree.insert(parent, 'end',
+                                           text='Cast',
+                                            open=True)
+        cst = results[r_int][9].split('\n')
+        cst.pop()
+        alt = ast.literal_eval(results[r_int][10])
+        alt_country = ast.literal_eval(results[r_int][11])
+        alt_combined = []
+        for i in range(len(alt)):
+            alt_combined.append(alt[i] + ' ' + alt_country[i])
+        for tt in alt_combined:
+            self.results_tree.insert(alt_row, 'end', text=tt)
+        for n in cst:
+            self.results_tree.insert(cast_row, 'end', text=n)
+
     def search_my_list(self):
         """Searches the list of owned films"""
         
@@ -463,17 +625,40 @@ class Application(tk.Frame):
         rating = self.search_rating_entry.get()
         genre = self.search_genre_entry.get()
         decade = self.dec_val.get()
+
+        conn = sql.connect('collection.db')
+        c = conn.cursor()
+        query = '''SELECT * FROM films'''
         
         if (title == '' and year == '' and director == '' and
             cast == '' and rating == '' and genre == '' and
             (decade == 'Choose a Decade' or decade == 'None')):
-            self.search_note_cell['text'] = 'Please enter a search parameter.'
-            print('Please enter a search parameter.')
-        else:
-            conn = sql.connect('collection.db')
-            c = conn.cursor()
 
-            query = '''SELECT * FROM films WHERE '''
+            
+            query += ''' ORDER BY (CASE
+                        WHEN title LIKE 'the %' THEN substr(title, 5)
+                        WHEN title LIKE 'a %' THEN substr(title, 3)
+                        WHEN title LIKE 'an %' THEN substr(title, 4)
+                        ELSE title
+                        END) ASC, year ASC'''
+
+            c.execute(query)
+            conn.commit()
+            
+            results = c.fetchall()
+
+            c.execute('SELECT COUNT(*) FROM films')
+            conn.commit()
+
+            total_count = c.fetchone()
+            conn.close()
+
+            res_count = len(results)
+            self.search_note_cell['text'] = ('Showing all ' + str(total_count[0])
+                                             + ' entries.')
+        else:
+
+            query += ''' WHERE '''
             sub_query = []
             vals = []
             start = 0
@@ -556,27 +741,27 @@ class Application(tk.Frame):
             self.search_note_cell['text'] = ('Showing ' + str(res_count) +
                                              ' out of ' + str(total_count[0])
                                              + ' entries.')
-            for i in range(res_count):
-                parent = self.results_tree.insert('', 'end',
-                                        text=results[i][0],
-                                        values=(results[i][1:9]))
-                alt_row = self.results_tree.insert(parent, 'end',
-                                                   text='Alternate Titles',
-                                                   open=True)
-                cast_row = self.results_tree.insert(parent, 'end',
-                                                   text='Cast',
-                                                    open=True)
-                cst = results[i][9].split('\n')
-                cst.pop()
-                alt = ast.literal_eval(results[i][10])
-                alt_country = ast.literal_eval(results[i][11])
-                alt_combined = []
-                for i in range(len(alt)):
-                    alt_combined.append(alt[i] + ' ' + alt_country[i])
-                for tt in alt_combined:
-                    self.results_tree.insert(alt_row, 'end', text=tt)
-                for n in cst:
-                    self.results_tree.insert(cast_row, 'end', text=n)
+        for i in range(res_count):
+            parent = self.results_tree.insert('', 'end',
+                                    text=results[i][0],
+                                    values=(results[i][1:9]))
+            alt_row = self.results_tree.insert(parent, 'end',
+                                               text='Alternate Titles',
+                                               open=True)
+            cast_row = self.results_tree.insert(parent, 'end',
+                                               text='Cast',
+                                                open=True)
+            cst = results[i][9].split('\n')
+            cst.pop()
+            alt = ast.literal_eval(results[i][10])
+            alt_country = ast.literal_eval(results[i][11])
+            alt_combined = []
+            for i in range(len(alt)):
+                alt_combined.append(alt[i] + ' ' + alt_country[i])
+            for tt in alt_combined:
+                self.results_tree.insert(alt_row, 'end', text=tt)
+            for n in cst:
+                self.results_tree.insert(cast_row, 'end', text=n)
 
     def list_add(self):
         """Adds a film to the list"""

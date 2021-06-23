@@ -580,37 +580,40 @@ class Application(tk.Frame):
 
             res_count = len(results)
 
-        # choose a random single
-        r_int = random.randint(0, res_count - 1)
-        print("Chose " + str(r_int) + " from " + str(res_count) + " films.")
-        self.search_note_cell['text'] = ('Randomly chose film #'
-                                             + str(r_int + 1)
-                                             + ' from '
-                                             + str(res_count)
-                                             + ' results.')
+        if (res_count != 0):
+            # choose a random single
+            r_int = random.randint(0, res_count - 1)
+            print("Chose " + str(r_int) + " from " + str(res_count) + " films.")
+            self.search_note_cell['text'] = ('Randomly chose film #'
+                                                 + str(r_int + 1)
+                                                 + ' from '
+                                                 + str(res_count)
+                                                 + ' results.')
 
+            # display it
+            parent = self.results_tree.insert('', 'end',
+                                    text=results[r_int][0],
+                                    values=(results[r_int][1:9]))
+            alt_row = self.results_tree.insert(parent, 'end',
+                                               text='Alternate Titles',
+                                               open=True)
+            cast_row = self.results_tree.insert(parent, 'end',
+                                               text='Cast',
+                                                open=True)
+            cst = results[r_int][9].split('\n')
+            cst.pop()
+            alt = ast.literal_eval(results[r_int][10])
+            alt_country = ast.literal_eval(results[r_int][11])
+            alt_combined = []
+            for i in range(len(alt)):
+                alt_combined.append(alt[i] + ' ' + alt_country[i])
+            for tt in alt_combined:
+                self.results_tree.insert(alt_row, 'end', text=tt)
+            for n in cst:
+                self.results_tree.insert(cast_row, 'end', text=n)
+        else:
+            self.search_note_cell['text'] = ('No results to choose from.')
 
-        # display it
-        parent = self.results_tree.insert('', 'end',
-                                text=results[r_int][0],
-                                values=(results[r_int][1:9]))
-        alt_row = self.results_tree.insert(parent, 'end',
-                                           text='Alternate Titles',
-                                           open=True)
-        cast_row = self.results_tree.insert(parent, 'end',
-                                           text='Cast',
-                                            open=True)
-        cst = results[r_int][9].split('\n')
-        cst.pop()
-        alt = ast.literal_eval(results[r_int][10])
-        alt_country = ast.literal_eval(results[r_int][11])
-        alt_combined = []
-        for i in range(len(alt)):
-            alt_combined.append(alt[i] + ' ' + alt_country[i])
-        for tt in alt_combined:
-            self.results_tree.insert(alt_row, 'end', text=tt)
-        for n in cst:
-            self.results_tree.insert(cast_row, 'end', text=n)
 
     def search_my_list(self):
         """Searches the list of owned films"""
